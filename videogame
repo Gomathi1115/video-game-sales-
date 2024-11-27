@@ -1,0 +1,206 @@
+from google.colab import files
+uploaded = files.upload()  # Upload your CSV file here
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+# Replace 'video_games_sales.csv' with your uploaded file name
+df = pd.read_csv('vgsales.csv')
+
+# Preview the dataset
+print(df.head())
+# Check for missing values
+print(df.isnull().sum())
+
+# Drop rows with missing values or fill them
+df = df.dropna()
+
+# Convert year to integer if needed
+df['Year'] = df['Year'].astype(int)
+# Summary statistics
+print(df.describe())
+
+# Top 10 video games by global sales
+print(df.nlargest(10, 'Global_Sales'))
+# Regional sales
+regions = ['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales']
+df[regions].sum().plot(kind='bar', title='Regional Sales Comparison')
+plt.ylabel('Sales (in millions)')
+plt.show()
+# Sales by Genre
+genre_sales = df.groupby('Genre')['Global_Sales'].sum().sort_values(ascending=False)
+genre_sales.plot(kind='bar', title='Top Genres by Global Sales')
+plt.ylabel('Sales (in millions)')
+plt.show()
+# Global sales trend over years
+sales_trend = df.groupby('Year')['Global_Sales'].sum()
+sales_trend.plot(title='Global Sales Trend Over the Years')
+plt.ylabel('Sales (in millions)')
+plt.xlabel('Year')
+plt.show()
+# Top publishers by global sales
+top_publishers = df.groupby('Publisher')['Global_Sales'].sum().nlargest(10)
+top_publishers.plot(kind='bar', title='Top Publishers by Global Sales')
+plt.ylabel('Sales (in millions)')
+plt.show()
+# Platforms with the highest sales
+platform_sales = df.groupby('Platform')['Global_Sales'].sum().nlargest(10)
+platform_sales.plot(kind='bar', title='Top Platforms by Global Sales')
+plt.ylabel('Sales (in millions)')
+plt.show()
+# Correlation heatmap
+sns.heatmap(df[['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales', 'Global_Sales']].corr(), annot=True, cmap='coolwarm')
+plt.title('Correlation Between Regional Sales')
+plt.show()
+# Pie chart for sales share by region
+region_sales = df[regions].sum()
+region_sales.plot(kind='pie', autopct='%1.1f%%', title='Sales Share by Region')
+plt.ylabel('')
+plt.show()
+import numpy as np
+from math import pi
+
+# Prepare data for the radar plot (Top 5 platforms by global sales)
+top_platforms = df.groupby('Platform').sum().sort_values('Global_Sales', ascending=False).head(5)
+categories = ['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales']
+values = top_platforms[categories].mean().values
+
+# Add the first value to close the radar chart
+values = np.append(values, values[0])
+
+# Define angle for each category
+num_vars = len(categories)
+angles = [n / float(num_vars) * 2 * pi for n in range(num_vars)]
+angles += angles[:1]
+
+# Initialize the radar plot
+fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
+
+# Draw one line per platform
+for platform, row in top_platforms.iterrows():
+    platform_values = row[categories].values
+    platform_values = np.append(platform_values, platform_values[0])  # Close the circle
+    ax.plot(angles, platform_values, label=platform)
+    ax.fill(angles, platform_values, alpha=0.1)
+
+# Add labels
+ax.set_yticks([])
+ax.set_xticks(angles[:-1])
+ax.set_xticklabels(categories)
+
+# Add title and legend
+plt.title("Regional Sales Comparison by Top Platforms", size=15, y=1.1)
+plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
+plt.show()
+!pip install plotly
+# Summing sales by region
+sales_by_region = {
+    'North America': df['NA_Sales'].sum(),
+    'Europe': df['EU_Sales'].sum(),
+    'Japan': df['JP_Sales'].sum(),
+    'Other': df['Other_Sales'].sum()
+}
+
+# Convert to a DataFrame for easier handling
+world_sales = pd.DataFrame({
+    'Region': sales_by_region.keys(),
+    'Sales': sales_by_region.values()
+})
+
+print(world_sales)
+import plotly.express as px
+
+# Assign approximate countries/regions for visualization
+world_sales['Country'] = ['United States', 'Germany', 'Japan', 'Rest of World']
+
+# Create a choropleth map
+fig = px.choropleth(
+    world_sales,
+    locations='Country',
+    locationmode='country names',
+    color='Sales',
+    hover_name='Region',
+    title='Global Video Game Sales by Region',
+    color_continuous_scale=px.colors.sequential.Plasma
+)
+
+# Show the map
+fig.show()
+!pip install networkx matplotlib
+import networkx as nx
+import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
+
+# Group data by Genre and Platform
+bipartite_data = df.groupby(['Genre', 'Platform']).size().reset_index(name='Count')
+
+# Create a bipartite graph
+B = nx.Graph()
+
+# Add nodes with two distinct sets: Genre and Platform
+genres = bipartite_data['Genre'].unique()
+platforms = bipartite_data['Platform'].unique()
+
+B.add_nodes_from(genres, bipartite=0)  # Set 1: Genres
+B.add_nodes_from(platforms, bipartite=1)  # Set 2: Platforms
+
+# Add edges with weights (count of games)
+for _, row in bipartite_data.iterrows():
+    B.add_edge(row['Genre'], row['Platform'], weight=row['Count'])
+
+# Prepare position for bipartite layout
+pos = nx.drawing.layout.bipartite_layout(B, genres)
+
+# Draw the graph
+plt.figure(figsize=(12, 8))
+nx.draw(
+    B,
+    pos,
+    with_labels=True,
+    node_color=[to_rgba('blue', 0.6) if n in genres else to_rgba('orange', 0.6) for n in B.nodes()],
+    node_size=600,
+    edge_color='gray',
+    font_size=10
+)
+
+# Add edge labels (weights)
+edge_labels = nx.get_edge_attributes(B, 'weight')
+nx.draw_networkx_edge_labels(B, pos, edge_labels=edge_labels, font_size=8)
+
+plt.title('Bipartite Graph: Genres vs Platforms')
+plt.show()
+import matplotlib.pyplot as plt
+# Calculate total sales for each region
+regions = ['NA_Sales', 'EU_Sales', 'JP_Sales', 'Other_Sales']
+region_sales = df[regions].sum()
+
+# Prepare labels and data
+labels = ['North America', 'Europe', 'Japan', 'Other']
+sizes = region_sales.values
+
+# Optional: Add colors for customization
+colors = ['#ff9999','#66b3ff','#99ff99','#ffcc99']
+
+print("Region Sales:", sizes)
+# Plot the donut chart
+fig, ax = plt.subplots(figsize=(8, 6))
+wedges, texts, autotexts = ax.pie(
+    sizes,
+    labels=labels,
+    autopct='%1.1f%%',  # Show percentages
+    startangle=90,      # Start from the top
+    colors=colors,
+    pctdistance=0.85    # Position percentage labels inside the donut
+)
+
+# Add a white circle at the center to create the donut shape
+center_circle = plt.Circle((0, 0), 0.70, fc='white')
+fig.gca().add_artist(center_circle)
+
+# Add title and styling
+ax.set_title('Global Video Game Sales by Region', fontsize=16)
+plt.axis('equal')  # Equal aspect ratio to ensure the donut is circular
+plt.show()
+fig.savefig('donut_chart_sales.png', dpi=300)
+
+
+
